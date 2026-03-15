@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "FloodMonitor",
+    "slug": "flood-monitor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a1628"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.floodmonitor.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a1628"
+      },
+      "package": "com.floodmonitor.app"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
