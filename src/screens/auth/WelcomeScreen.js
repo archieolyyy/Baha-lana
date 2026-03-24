@@ -14,7 +14,7 @@ import AuthLayout from './AuthLayout';
 import { authStyles } from './authTheme';
 import { Gradients } from '../../constants/colors';
 
-const LOGO = require('../../logo.png');
+const LOGO = require('../../../assets/images/logo.png');
 
 const PLACEHOLDER_FOOTER = 'Sign in to sync your profile and mobile number for alert delivery.';
 
