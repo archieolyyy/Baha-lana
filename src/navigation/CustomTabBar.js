@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../constants/colors';
+import { Colors, Gradients } from '../constants/colors';
 import { Typography } from '../constants/typography';
 
 const TAB_CONFIG = [
@@ -62,7 +62,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
               </Text>
               {isFocused && (
                 <LinearGradient
-                  colors={['#60a5fa', '#3b82f6', '#2563eb']}
+                  colors={Gradients.tabPill}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.activePill}

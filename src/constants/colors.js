@@ -4,10 +4,10 @@ export const Colors = {
   bgMid: '#1e3a5f',
   bgBottom: '#0a1628',
 
-  // Accent blues
-  primary: '#2563eb',
-  primaryLight: '#60a5fa',
-  primaryDark: '#1e40af',
+  /** Muted steel / ocean blue — matches navy UI, not electric blue */
+  primary: '#3d5a73',
+  primaryLight: '#8fafc4',
+  primaryDark: '#2a4052',
 
   // Surface / Glass
   glass: 'rgba(255, 255, 255, 0.12)',
@@ -20,6 +20,10 @@ export const Colors = {
   textMuted: 'rgba(255, 255, 255, 0.45)',
   textDark: '#0f172a',
   textDarkSecondary: '#475569',
+  textOnGlass: 'rgba(255, 255, 255, 0.95)',
+  textOnGlassSecondary: 'rgba(255, 255, 255, 0.62)',
+  textOnGlassMuted: 'rgba(255, 255, 255, 0.5)',
+  iconOnGlass: 'rgba(255, 255, 255, 0.88)',
 
   // Flood risk tiers
   safe: '#22c55e',
@@ -41,10 +45,27 @@ export const Colors = {
 };
 
 export const Gradients = {
+  /** Auth sign-up: long white top, navy bottom (aligned with main app gradient tail) */
+  authBgLight: ['#ffffff', '#ffffff', '#f8fafc', '#e8eef4', '#1e3a5f', '#0a1628'],
+  /** Auth login: inverted — navy top, white bottom (mirror of authBgLight) */
+  authBgLogin: ['#0a1628', '#1e3a5f', '#e8eef4', '#f8fafc', '#ffffff', '#ffffff'],
+  /** Welcome: white/light top → soft blend → navy tail (full vertical gradient) */
+  authBgWelcome: [
+    '#ffffff',
+    '#f8fafc',
+    '#e8eef4',
+    '#d0dce8',
+    '#1e3a5f',
+    '#0f1f35',
+    '#0a1628',
+  ],
   screenBg: ['#dde4f0', '#3b6ea5', '#152742', '#0a1628'],
   cardGlass: ['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)'],
-  bluePill: ['#2563eb', '#1e40af'],
-  waterGauge: ['#3b82f6', '#1d4ed8'],
+  /** Primary CTAs — muted slate-blue */
+  bluePill: ['#4a6b82', '#2f4557'],
+  waterGauge: ['#4a6b82', '#2f4557'],
+  /** Tab bar active pill */
+  tabPill: ['#8fafc4', '#5d7a8f', '#3d5a73'],
   safe: ['#22c55e', '#16a34a'],
   warning: ['#eab308', '#ca8a04'],
   critical: ['#f97316', '#ea580c'],

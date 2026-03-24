@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,18 +14,54 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GlassCard from '../components/GlassCard';
 import { Colors, Gradients } from '../constants/colors';
 import { Typography } from '../constants/typography';
+import { useAuth } from '../context/AuthContext';
+import { formatPhoneDisplay } from '../utils/phone';
 
 const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
-  const [name, setName] = useState('Juan Dela Cruz');
-  const [phone, setPhone] = useState('+63 912 345 6789');
+  const {
+    user,
+    profile,
+    firebaseReady,
+    updateUserProfile,
+    signOut,
+  } = useAuth();
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [location, setLocation] = useState('Zamboanga City');
   const [editing, setEditing] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
 
-  const handleSave = () => {
-    setEditing(false);
-    Alert.alert('Saved', 'Your profile has been updated.');
+  useEffect(() => {
+    if (profile?.displayName) setName(profile.displayName);
+    if (profile?.phoneE164) setPhone(formatPhoneDisplay(profile.phoneE164));
+    if (profile?.location) setLocation(profile.location);
+  }, [profile]);
+
+  const handleSave = async () => {
+    if (!firebaseReady || !user) {
+      setEditing(false);
+      return;
+    }
+    try {
+      await updateUserProfile({
+        displayName: name,
+        phoneRaw: phone,
+        location,
+      });
+      setEditing(false);
+      Alert.alert('Saved', 'Your profile has been updated.');
+    } catch (e) {
+      Alert.alert('Error', e.message || 'Could not save.');
+    }
+  };
+
+  const onSignOut = () => {
+    Alert.alert('Sign out', 'Sign out of this account?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
+    ]);
   };
 
   const ToggleRow = ({ icon, label, value, onToggle }) => (
@@ -49,16 +85,30 @@ const ProfileScreen = () => {
         <Text style={styles.title}>Profile</Text>
         <Text style={styles.subtitle}>Manage your account & preferences</Text>
 
-        {/* Avatar */}
+        {!firebaseReady && (
+          <GlassCard dark style={styles.banner}>
+            <Text style={styles.bannerText}>
+              Firebase not configured. Copy .env.example to .env and add EXPO_PUBLIC_FIREBASE_* keys from the Firebase
+              Console, then restart Expo.
+            </Text>
+          </GlassCard>
+        )}
+
+        {firebaseReady && user && (
+          <GlassCard dark style={styles.banner}>
+            <Text style={styles.bannerLabel}>Signed in as</Text>
+            <Text style={styles.bannerEmail}>{user.email}</Text>
+          </GlassCard>
+        )}
+
         <View style={styles.avatarSection}>
           <LinearGradient colors={Gradients.bluePill} style={styles.avatar}>
             <Ionicons name="person" size={40} color={Colors.white} />
           </LinearGradient>
-          <Text style={styles.avatarName}>{name}</Text>
-          <Text style={styles.avatarPhone}>{phone}</Text>
+          <Text style={styles.avatarName}>{name || '—'}</Text>
+          <Text style={styles.avatarPhone}>{phone || '—'}</Text>
         </View>
 
-        {/* Info card */}
         <GlassCard dark style={styles.infoCard}>
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>Full Name</Text>
@@ -68,16 +118,17 @@ const ProfileScreen = () => {
                 value={name}
                 onChangeText={setName}
                 placeholderTextColor={Colors.textMuted}
+                editable={firebaseReady && !!user}
               />
             ) : (
-              <Text style={styles.fieldValue}>{name}</Text>
+              <Text style={styles.fieldValue}>{name || '—'}</Text>
             )}
           </View>
 
           <View style={styles.divider} />
 
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Phone Number</Text>
+            <Text style={styles.fieldLabel}>Phone Number (PH)</Text>
             {editing ? (
               <TextInput
                 style={styles.input}
@@ -85,9 +136,11 @@ const ProfileScreen = () => {
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
                 placeholderTextColor={Colors.textMuted}
+                placeholder="09XX XXX XXXX"
+                editable={firebaseReady && !!user}
               />
             ) : (
-              <Text style={styles.fieldValue}>{phone}</Text>
+              <Text style={styles.fieldValue}>{phone || '—'}</Text>
             )}
           </View>
 
@@ -95,22 +148,33 @@ const ProfileScreen = () => {
 
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>Location</Text>
-            <Text style={styles.fieldValue}>Zamboanga City</Text>
+            {editing ? (
+              <TextInput
+                style={styles.input}
+                value={location}
+                onChangeText={setLocation}
+                placeholderTextColor={Colors.textMuted}
+                editable={firebaseReady && !!user}
+              />
+            ) : (
+              <Text style={styles.fieldValue}>{location}</Text>
+            )}
           </View>
 
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={editing ? handleSave : () => setEditing(true)}
-            activeOpacity={0.8}
-          >
-            <LinearGradient colors={Gradients.bluePill} style={styles.editBtnGradient}>
-              <Ionicons name={editing ? 'checkmark' : 'create-outline'} size={18} color={Colors.white} />
-              <Text style={styles.editBtnText}>{editing ? 'Save' : 'Edit Profile'}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          {firebaseReady && user ? (
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={editing ? handleSave : () => setEditing(true)}
+              activeOpacity={0.8}
+            >
+              <LinearGradient colors={Gradients.bluePill} style={styles.editBtnGradient}>
+                <Ionicons name={editing ? 'checkmark' : 'create-outline'} size={18} color={Colors.white} />
+                <Text style={styles.editBtnText}>{editing ? 'Save' : 'Edit Profile'}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : null}
         </GlassCard>
 
-        {/* Notification settings */}
         <GlassCard style={styles.settingsCard}>
           <Text style={styles.sectionTitle}>Notifications</Text>
           <ToggleRow
@@ -127,7 +191,6 @@ const ProfileScreen = () => {
           />
         </GlassCard>
 
-        {/* About */}
         <GlassCard style={styles.aboutCard}>
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.aboutText}>
@@ -136,6 +199,12 @@ const ProfileScreen = () => {
             College of Computing Studies
           </Text>
         </GlassCard>
+
+        {firebaseReady && user ? (
+          <TouchableOpacity style={styles.signOutBtn} onPress={onSignOut} activeOpacity={0.8}>
+            <Text style={styles.signOutText}>Sign out</Text>
+          </TouchableOpacity>
+        ) : null}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -155,6 +224,24 @@ const styles = StyleSheet.create({
     color: Colors.textDarkSecondary,
     marginTop: 2,
     marginBottom: 24,
+  },
+  banner: {
+    marginBottom: 16,
+    padding: 14,
+  },
+  bannerText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  bannerLabel: {
+    ...Typography.caption,
+    color: Colors.textMuted,
+  },
+  bannerEmail: {
+    ...Typography.bodyBold,
+    color: Colors.textPrimary,
+    marginTop: 4,
   },
   avatarSection: {
     alignItems: 'center',
@@ -205,7 +292,7 @@ const styles = StyleSheet.create({
   },
   editBtn: {
     marginTop: 18,
-    borderRadius: 14,
+    borderRadius: 999,
     overflow: 'hidden',
   },
   editBtnGradient: {
@@ -272,6 +359,15 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.textSecondary,
     lineHeight: 22,
+  },
+  signOutBtn: {
+    marginTop: 8,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  signOutText: {
+    ...Typography.bodyBold,
+    color: '#f87171',
   },
 });
 

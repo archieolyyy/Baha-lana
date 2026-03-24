@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,11 +11,12 @@ import { useFloodData } from '../hooks/useFloodData';
 import { Colors, Gradients } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { getGreeting } from '../utils/helpers';
-
-const { width } = Dimensions.get('window');
+import { useAuth } from '../context/AuthContext';
 
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
+  const { displayName } = useAuth();
+  const firstName = displayName ? displayName.trim().split(/\s+/)[0] : 'User';
   const {
     currentCm,
     currentPercent,
@@ -44,8 +38,8 @@ const HomeScreen = () => {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.title}>Flood Monitor</Text>
+            <Text style={styles.title}>{getGreeting(firstName)}</Text>
+            <Text style={styles.greeting}>Flood Monitor</Text>
           </View>
           <View style={styles.liveBadge}>
             <View style={styles.liveDot} />
@@ -84,17 +78,17 @@ const HomeScreen = () => {
         {/* Sensor stats */}
         <View style={styles.statsRow}>
           <GlassCard style={styles.statCard}>
-            <Ionicons name="water-outline" size={20} color={Colors.primaryLight} />
+            <Ionicons name="water-outline" size={22} color={Colors.iconOnGlass} />
             <Text style={styles.statValue}>{currentCm} cm</Text>
             <Text style={styles.statLabel}>Water Level</Text>
           </GlassCard>
           <GlassCard style={styles.statCard}>
-            <Ionicons name="speedometer-outline" size={20} color={Colors.primaryLight} />
+            <Ionicons name="speedometer-outline" size={22} color={Colors.iconOnGlass} />
             <Text style={styles.statValue}>{Math.round(currentPercent)}%</Text>
             <Text style={styles.statLabel}>Capacity</Text>
           </GlassCard>
           <GlassCard style={styles.statCard}>
-            <Ionicons name="pulse-outline" size={20} color={Colors.primaryLight} />
+            <Ionicons name="pulse-outline" size={22} color={Colors.iconOnGlass} />
             <Text style={styles.statValue}>Active</Text>
             <Text style={styles.statLabel}>Sensor</Text>
           </GlassCard>
@@ -128,14 +122,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
-  greeting: {
-    ...Typography.caption,
-    color: Colors.textDarkSecondary,
-    marginBottom: 2,
-  },
   title: {
     ...Typography.h1,
     color: Colors.textDark,
+    marginBottom: 2,
+  },
+  greeting: {
+    ...Typography.caption,
+    color: Colors.textDarkSecondary,
   },
   liveBadge: {
     flexDirection: 'row',
@@ -194,7 +188,7 @@ const styles = StyleSheet.create({
   },
   levelBadgeText: {
     ...Typography.label,
-    color: Colors.textMuted,
+    color: Colors.textOnGlassMuted,
   },
   statsRow: {
     flexDirection: 'row',
@@ -209,12 +203,12 @@ const styles = StyleSheet.create({
   },
   statValue: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
     marginTop: 8,
   },
   statLabel: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textOnGlassSecondary,
     marginTop: 2,
   },
   chartCard: {
@@ -225,11 +219,11 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...Typography.h3,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
   },
   sectionSub: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textOnGlassMuted,
     marginTop: 2,
   },
 });
