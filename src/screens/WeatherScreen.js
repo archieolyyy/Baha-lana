@@ -32,7 +32,7 @@ const FORECAST = [
 
 const StatItem = ({ icon, label, value }) => (
   <View style={styles.statItem}>
-    <Ionicons name={icon} size={18} color={Colors.primaryLight} />
+    <Ionicons name={icon} size={18} color={Colors.iconOnGlass} />
     <Text style={styles.statValue}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
   </View>
@@ -53,7 +53,7 @@ const WeatherScreen = () => {
         {/* Current weather */}
         <GlassCard dark style={styles.mainCard}>
           <View style={styles.tempRow}>
-            <Ionicons name={MOCK_WEATHER.icon} size={56} color={Colors.primaryLight} />
+            <Ionicons name={MOCK_WEATHER.icon} size={56} color={Colors.iconOnGlass} />
             <View style={styles.tempInfo}>
               <Text style={styles.tempText}>{MOCK_WEATHER.temp}°</Text>
               <Text style={styles.conditionText}>{MOCK_WEATHER.condition}</Text>
@@ -80,13 +80,13 @@ const WeatherScreen = () => {
           {FORECAST.map((day, i) => (
             <View key={i} style={[styles.forecastRow, i < FORECAST.length - 1 && styles.forecastBorder]}>
               <Text style={styles.forecastDay}>{day.day}</Text>
-              <Ionicons name={day.icon} size={22} color={Colors.primaryLight} />
+              <Ionicons name={day.icon} size={22} color={Colors.iconOnGlass} />
               <View style={styles.forecastTemps}>
                 <Text style={styles.forecastHigh}>{day.high}°</Text>
                 <Text style={styles.forecastLow}>{day.low}°</Text>
               </View>
               <View style={styles.rainChance}>
-                <Ionicons name="water-outline" size={12} color={Colors.primaryLight} />
+                <Ionicons name="water-outline" size={12} color={Colors.iconOnGlass} />
                 <Text style={styles.rainText}>{day.rain}%</Text>
               </View>
             </View>
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   },
   feelsLike: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textOnGlassSecondary,
     marginTop: 2,
   },
   gridCard: { marginBottom: 16 },
@@ -150,18 +150,18 @@ const styles = StyleSheet.create({
   },
   statValue: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
     marginTop: 6,
   },
   statLabel: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textOnGlassSecondary,
     marginTop: 2,
   },
   forecastCard: { marginBottom: 8 },
   sectionTitle: {
     ...Typography.h3,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
     marginBottom: 14,
   },
   forecastRow: {
@@ -172,11 +172,11 @@ const styles = StyleSheet.create({
   },
   forecastBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    borderBottomColor: 'rgba(255,255,255,0.14)',
   },
   forecastDay: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
     width: 50,
   },
   forecastTemps: {
@@ -186,11 +186,11 @@ const styles = StyleSheet.create({
   },
   forecastHigh: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
   },
   forecastLow: {
     ...Typography.body,
-    color: Colors.textMuted,
+    color: Colors.textOnGlassSecondary,
   },
   rainChance: {
     flexDirection: 'row',
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
   rainText: {
     ...Typography.caption,
-    color: Colors.primaryLight,
+    color: Colors.textOnGlassSecondary,
   },
 });
 

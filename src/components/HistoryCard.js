@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import GlassCard from './GlassCard';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { formatDateTime } from '../utils/helpers';
@@ -10,7 +9,7 @@ const HistoryCard = ({ entry }) => {
   const { level, cm, percent, timestamp } = entry;
 
   return (
-    <GlassCard style={styles.card}>
+    <View style={styles.card}>
       <View style={styles.row}>
         <View style={[styles.levelBadge, { backgroundColor: level.glow }]}>
           <Ionicons name={level.icon} size={18} color={level.color} />
@@ -30,7 +29,7 @@ const HistoryCard = ({ entry }) => {
           <Text style={styles.percent}>{Math.round(percent)}%</Text>
         </View>
       </View>
-    </GlassCard>
+    </View>
   );
 };
 
@@ -38,6 +37,15 @@ const styles = StyleSheet.create({
   card: {
     padding: 14,
     marginBottom: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    shadowColor: '#0a1628',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   row: {
     flexDirection: 'row',
@@ -56,15 +64,15 @@ const styles = StyleSheet.create({
   },
   levelText: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
+    color: Colors.textDark,
   },
   tag: {
     ...Typography.caption,
-    color: Colors.textSecondary,
+    color: Colors.textDarkSecondary,
   },
   time: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textDarkSecondary,
     marginTop: 2,
   },
   values: {
@@ -75,7 +83,7 @@ const styles = StyleSheet.create({
   },
   percent: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textDarkSecondary,
   },
 });
 

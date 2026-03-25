@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import GlassCard from './GlassCard';
 import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { formatDateTime } from '../utils/helpers';
@@ -10,7 +9,7 @@ const AlertCard = ({ alert }) => {
   const { level, message, timestamp, read } = alert;
 
   return (
-    <GlassCard style={[styles.card, !read && { borderColor: level.color }]}>
+    <View style={[styles.card, !read && styles.cardUnread, !read && { borderColor: level.color }]}>
       <View style={styles.row}>
         <View style={[styles.iconWrap, { backgroundColor: level.glow }]}>
           <Ionicons name={level.icon} size={20} color={level.color} />
@@ -26,7 +25,7 @@ const AlertCard = ({ alert }) => {
           <Text style={styles.time}>{formatDateTime(timestamp)}</Text>
         </View>
       </View>
-    </GlassCard>
+    </View>
   );
 };
 
@@ -34,6 +33,18 @@ const styles = StyleSheet.create({
   card: {
     padding: 16,
     marginBottom: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    shadowColor: '#0a1628',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  cardUnread: {
+    borderWidth: 1.5,
   },
   row: {
     flexDirection: 'row',
@@ -67,12 +78,12 @@ const styles = StyleSheet.create({
   },
   message: {
     ...Typography.body,
-    color: Colors.textPrimary,
+    color: Colors.textDark,
     marginBottom: 6,
   },
   time: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textDarkSecondary,
   },
 });
 

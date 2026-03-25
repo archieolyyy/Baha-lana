@@ -20,10 +20,10 @@ export const Colors = {
   textMuted: 'rgba(255, 255, 255, 0.45)',
   textDark: '#0f172a',
   textDarkSecondary: '#475569',
-  textOnGlass: 'rgba(255, 255, 255, 0.95)',
-  textOnGlassSecondary: 'rgba(255, 255, 255, 0.62)',
-  textOnGlassMuted: 'rgba(255, 255, 255, 0.5)',
-  iconOnGlass: 'rgba(255, 255, 255, 0.88)',
+  textOnGlass: 'rgba(255, 255, 255, 0.98)',
+  textOnGlassSecondary: 'rgba(255, 255, 255, 0.82)',
+  textOnGlassMuted: 'rgba(255, 255, 255, 0.72)',
+  iconOnGlass: 'rgba(255, 255, 255, 0.96)',
 
   // Flood risk tiers
   safe: '#22c55e',

@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import WaterLevelGauge from '../components/WaterLevelGauge';
 import FloodStatusBar from '../components/FloodStatusBar';
 import WeeklyChart from '../components/WeeklyChart';
@@ -12,6 +19,7 @@ import { Colors, Gradients } from '../constants/colors';
 import { Typography } from '../constants/typography';
 import { getGreeting } from '../utils/helpers';
 import { useAuth } from '../context/AuthContext';
+import { TOTAL_HEIGHT_CM } from '../constants/floodLevels';
 
 const HomeScreen = () => {
   const insets = useSafeAreaInsets();
@@ -25,6 +33,22 @@ const HomeScreen = () => {
     loading,
     refresh,
   } = useFloodData();
+  const statusAccent = currentLevel.level === 1 ? '#64b88a' : currentLevel.color;
+
+  const livePulse = useSharedValue(0);
+
+  useEffect(() => {
+    livePulse.value = withRepeat(
+      withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const liveDotAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + livePulse.value * 0.18 }],
+    opacity: 0.82 + livePulse.value * 0.18,
+  }));
 
   return (
     <LinearGradient colors={Gradients.screenBg} style={styles.root} locations={[0, 0.35, 0.65, 1]}>
@@ -37,12 +61,19 @@ const HomeScreen = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{getGreeting(firstName)}</Text>
-            <Text style={styles.greeting}>Flood Monitor</Text>
+          <View style={styles.greetingWrap}>
+            <Text
+              style={styles.title}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              {`${getGreeting()}, ${firstName}`}
+            </Text>
           </View>
           <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
+            <Animated.View style={[styles.liveDot, liveDotAnimStyle]} />
             <Text style={styles.liveText}>LIVE</Text>
           </View>
         </View>
@@ -57,16 +88,16 @@ const HomeScreen = () => {
           <Text style={styles.cmText}>
             {currentCm} <Text style={styles.cmUnit}>cm</Text>
             <Text style={styles.cmDivider}> / </Text>
-            180 <Text style={styles.cmUnit}>cm</Text>
+            {TOTAL_HEIGHT_CM} <Text style={styles.cmUnit}>cm</Text>
           </Text>
         </View>
 
         {/* Status bar */}
         <GlassCard style={styles.statusCard}>
           <View style={styles.statusHeader}>
-            <View style={styles.statusRow}>
-              <Ionicons name={currentLevel.icon} size={18} color={currentLevel.color} />
-              <Text style={[styles.statusLabel, { color: currentLevel.color }]}>
+            <View style={[styles.statusRow, styles.statusTagPill]}>
+              <Ionicons name={currentLevel.icon} size={18} color={statusAccent} />
+              <Text style={[styles.statusLabel, { color: statusAccent }]}>
                 {currentLevel.tag}
               </Text>
             </View>
@@ -122,35 +153,49 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
+  greetingWrap: {
+    flex: 1,
+    flexDirection: 'column',
+    paddingRight: 12, // keeps text from colliding with the LIVE badge
+  },
+  // keep title compact so it's always a single line
   title: {
     ...Typography.h1,
     color: Colors.textDark,
     marginBottom: 2,
-  },
-  greeting: {
-    ...Typography.caption,
-    color: Colors.textDarkSecondary,
+    fontSize: 24,
+    flexShrink: 1,
   },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(34,197,94,0.15)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
+    backgroundColor: 'rgba(34, 197, 94, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
     marginTop: 4,
+    flexShrink: 0,
+    shadowColor: 'rgba(0, 0, 0, 0.2)',
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
   liveDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: Colors.safe,
+    backgroundColor: 'rgba(74, 222, 128, 0.95)',
     marginRight: 5,
   },
   liveText: {
-    ...Typography.label,
-    color: Colors.safe,
     fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    color: 'rgba(255, 255, 255, 0.88)',
+    textTransform: 'uppercase',
   },
   gaugeSection: {
     alignItems: 'center',
@@ -183,12 +228,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  statusTagPill: {
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
   statusLabel: {
     ...Typography.bodyBold,
+    textShadowColor: 'rgba(255,255,255,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   levelBadgeText: {
     ...Typography.label,
-    color: Colors.textOnGlassMuted,
+    color: Colors.textOnGlassSecondary,
   },
   statsRow: {
     flexDirection: 'row',

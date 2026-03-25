@@ -1,92 +1,121 @@
 import { useState, useEffect, useCallback } from 'react';
+import { onValue, query, limitToLast } from 'firebase/database';
 import { getLevelForCm, cmToPercent } from '../constants/floodLevels';
+import { sensorRef, historyRef } from '../services/firebase';
 
-/**
- * Mock data hook — replace internals with Firebase
- * realtime listener once backend is connected.
- */
-
-const MOCK_CURRENT_CM = 45;
-
-const generateWeeklyData = () => {
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const today = new Date().getDay();
-  return days.map((day, i) => ({
-    day,
-    cm: i <= today ? Math.floor(Math.random() * 100) + 10 : 0,
-    isToday: i === today,
-  }));
-};
-
-const generateHistory = () => {
-  const entries = [];
-  const now = Date.now();
-  for (let i = 0; i < 15; i++) {
-    const cm = Math.floor(Math.random() * 160) + 10;
-    const level = getLevelForCm(cm);
-    entries.push({
-      id: `h${i}`,
-      timestamp: now - i * 3600000 * (3 + Math.random() * 5),
-      cm,
-      percent: cmToPercent(cm),
-      level,
-    });
-  }
-  return entries.sort((a, b) => b.timestamp - a.timestamp);
-};
-
-const generateAlerts = () => {
-  const types = [
-    { cm: 165, msg: 'Water level reached OVERFLOW. Evacuate immediately!' },
-    { cm: 145, msg: 'Water level is CRITICAL. Prepare for evacuation.' },
-    { cm: 100, msg: 'Water rising — Medium warning issued.' },
-    { cm: 50, msg: 'Water level is low. Conditions are safe.' },
-    { cm: 155, msg: 'Water level approaching OVERFLOW threshold.' },
-    { cm: 92, msg: 'Yellow warning — water has surpassed 90 cm.' },
-  ];
-  const now = Date.now();
-  return types.map((t, i) => ({
-    id: `a${i}`,
-    timestamp: now - i * 7200000,
-    cm: t.cm,
-    percent: cmToPercent(t.cm),
-    level: getLevelForCm(t.cm),
-    message: t.msg,
-    read: i > 2,
-  }));
+const messageForCm = (cm) => {
+  const level = getLevelForCm(cm);
+  if (level.level >= 3) return 'Danger: water level is high.';
+  if (level.level >= 2) return 'Warning: water level is rising.';
+  return 'Water level update received.';
 };
 
 export const useFloodData = () => {
-  const [currentCm, setCurrentCm] = useState(MOCK_CURRENT_CM);
+  const [currentCm, setCurrentCm] = useState(0);
   const [weeklyData, setWeeklyData] = useState([]);
   const [history, setHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate initial data fetch
-    const timer = setTimeout(() => {
-      setWeeklyData(generateWeeklyData());
-      setHistory(generateHistory());
-      setAlerts(generateAlerts());
+    const ref = sensorRef();
+    if (!ref) {
       setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
+      return;
+    }
+
+    const unsub = onValue(
+      ref,
+      (snap) => {
+        const data = snap.val();
+        const cm = typeof data?.cm === 'number' ? data.cm : 0;
+        setCurrentCm(cm);
+        setLoading(false);
+      },
+      () => {
+        setLoading(false);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const ref = historyRef();
+    if (!ref) return undefined;
+
+    const q = query(ref, limitToLast(80));
+    const unsub = onValue(
+      q,
+      (snap) => {
+        const value = snap.val() || {};
+        const items = Object.entries(value)
+          .map(([id, row]) => {
+            const cm = Number(row?.cm);
+            const timestamp = Number(row?.updatedAt ?? row?.timestamp) || Date.now();
+            if (Number.isNaN(cm)) return null;
+            return {
+              id,
+              cm,
+              timestamp,
+              percent: cmToPercent(cm),
+              level: getLevelForCm(cm),
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => b.timestamp - a.timestamp);
+
+        setHistory(items);
+
+        const latestAlerts = items
+          .filter((x) => x.level.level >= 3)
+          .slice(0, 20)
+          .map((x, i) => ({
+            id: `a-${x.id}`,
+            timestamp: x.timestamp,
+            cm: x.cm,
+            percent: x.percent,
+            level: x.level,
+            message: messageForCm(x.cm),
+            read: i > 2,
+          }));
+        setAlerts(latestAlerts);
+
+        const byDay = new Map();
+        for (const x of items) {
+          const d = new Date(x.timestamp);
+          const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+          if (!byDay.has(key)) byDay.set(key, []);
+          byDay.get(key).push(x.cm);
+        }
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const weekly = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+          const arr = byDay.get(key) || [];
+          const avg = arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+          weekly.push({
+            day: days[d.getDay()],
+            cm: avg,
+            isToday: i === 0,
+          });
+        }
+        setWeeklyData(weekly);
+      },
+      () => {
+        setHistory([]);
+      }
+    );
+
+    return () => unsub();
   }, []);
 
   const currentLevel = getLevelForCm(currentCm);
   const currentPercent = cmToPercent(currentCm);
 
   const refresh = useCallback(() => {
-    setLoading(true);
-    setTimeout(() => {
-      const newCm = Math.floor(Math.random() * 150) + 10;
-      setCurrentCm(newCm);
-      setWeeklyData(generateWeeklyData());
-      setHistory(generateHistory());
-      setAlerts(generateAlerts());
-      setLoading(false);
-    }, 600);
+    // Live data is pushed by Firebase listener; no mock refresh.
   }, []);
 
   return {

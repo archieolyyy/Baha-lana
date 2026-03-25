@@ -6,11 +6,13 @@ import { Colors } from '../constants/colors';
 import { Typography } from '../constants/typography';
 
 const FloodStatusBar = ({ currentCm }) => {
+  const isActiveLevel = (lvl) => currentCm >= lvl.minCm && currentCm < lvl.maxCm;
+
   return (
     <View style={styles.container}>
       <View style={styles.bar}>
         {FLOOD_LEVELS.map((lvl, i) => {
-          const isActive = currentCm >= lvl.minCm && currentCm < lvl.maxCm;
+          const isActive = isActiveLevel(lvl);
           const isPast = currentCm >= lvl.maxCm;
           return (
             <View key={lvl.level} style={[styles.segment, { flex: lvl.maxCm - lvl.minCm }]}>
@@ -33,23 +35,23 @@ const FloodStatusBar = ({ currentCm }) => {
         })}
       </View>
       <View style={styles.labels}>
-        {FLOOD_LEVELS.map((lvl) => (
+        {FLOOD_LEVELS.map((lvl) => {
+          const active = isActiveLevel(lvl);
+          return (
           <Text
             key={lvl.level}
             style={[
               styles.label,
               {
                 flex: lvl.maxCm - lvl.minCm,
-                color:
-                  currentCm >= lvl.minCm && currentCm < lvl.maxCm
-                    ? lvl.color
-                    : Colors.textMuted,
+                color: active ? lvl.color : Colors.textOnGlassSecondary,
+                fontWeight: active ? '700' : '600',
               },
             ]}
           >
             Lv{lvl.level}
           </Text>
-        ))}
+        )})}
       </View>
     </View>
   );

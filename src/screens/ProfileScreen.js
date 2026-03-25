@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,7 @@ const ProfileScreen = () => {
   const [editing, setEditing] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
+  const [signOutVisible, setSignOutVisible] = useState(false);
 
   useEffect(() => {
     if (profile?.displayName) setName(profile.displayName);
@@ -57,17 +59,19 @@ const ProfileScreen = () => {
     }
   };
 
-  const onSignOut = () => {
-    Alert.alert('Sign out', 'Sign out of this account?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => signOut() },
-    ]);
+  const confirmSignOut = async () => {
+    setSignOutVisible(false);
+    try {
+      await signOut();
+    } catch (e) {
+      Alert.alert('Error', e.message || 'Could not sign out.');
+    }
   };
 
   const ToggleRow = ({ icon, label, value, onToggle }) => (
     <TouchableOpacity style={styles.toggleRow} onPress={onToggle} activeOpacity={0.7}>
       <View style={styles.toggleLeft}>
-        <Ionicons name={icon} size={20} color={Colors.primaryLight} />
+        <Ionicons name={icon} size={20} color={Colors.iconOnGlass} />
         <Text style={styles.toggleLabel}>{label}</Text>
       </View>
       <View style={[styles.toggleTrack, value && styles.toggleTrackActive]}>
@@ -201,13 +205,59 @@ const ProfileScreen = () => {
         </GlassCard>
 
         {firebaseReady && user ? (
-          <TouchableOpacity style={styles.signOutBtn} onPress={onSignOut} activeOpacity={0.8}>
-            <Text style={styles.signOutText}>Sign out</Text>
+          <TouchableOpacity
+            style={styles.signOutBtn}
+            onPress={() => setSignOutVisible(true)}
+            activeOpacity={0.88}
+          >
+            <LinearGradient
+              colors={['rgba(239,68,68,0.2)', 'rgba(127,29,29,0.14)']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.signOutBtnInner}
+            >
+              <Text style={styles.signOutTitle}>Sign out</Text>
+            </LinearGradient>
           </TouchableOpacity>
         ) : null}
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <Modal
+        visible={signOutVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setSignOutVisible(false)}
+      >
+        <View style={styles.modalRoot}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setSignOutVisible(false)}
+          />
+          <View style={styles.modalCenter} pointerEvents="box-none">
+            <GlassCard dark style={styles.signOutModalCard}>
+              <Text style={styles.modalTitle}>Sign out?</Text>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalBtnSecondary}
+                  onPress={() => setSignOutVisible(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalBtnDangerWrap} onPress={confirmSignOut} activeOpacity={0.9}>
+                  <LinearGradient colors={['#ef4444', '#b91c1c']} style={styles.modalBtnDanger}>
+                    <Text style={styles.modalBtnDangerText}>Sign out</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </GlassCard>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -231,16 +281,16 @@ const styles = StyleSheet.create({
   },
   bannerText: {
     ...Typography.caption,
-    color: Colors.textSecondary,
+    color: Colors.textOnGlassSecondary,
     lineHeight: 18,
   },
   bannerLabel: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textOnGlassMuted,
   },
   bannerEmail: {
     ...Typography.bodyBold,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
     marginTop: 4,
   },
   avatarSection: {
@@ -257,11 +307,11 @@ const styles = StyleSheet.create({
   },
   avatarName: {
     ...Typography.h2,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
   },
   avatarPhone: {
     ...Typography.body,
-    color: Colors.textSecondary,
+    color: Colors.textOnGlassSecondary,
     marginTop: 2,
   },
   infoCard: {
@@ -272,23 +322,23 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     ...Typography.caption,
-    color: Colors.textMuted,
+    color: Colors.textOnGlassMuted,
     marginBottom: 4,
   },
   fieldValue: {
     ...Typography.body,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
   },
   input: {
     ...Typography.body,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.primaryLight,
+    borderBottomColor: Colors.textOnGlassSecondary,
     paddingBottom: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.divider,
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   editBtn: {
     marginTop: 18,
@@ -311,7 +361,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...Typography.h3,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
     marginBottom: 12,
   },
   toggleRow: {
@@ -320,7 +370,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    borderBottomColor: 'rgba(255,255,255,0.14)',
   },
   toggleLeft: {
     flexDirection: 'row',
@@ -329,7 +379,7 @@ const styles = StyleSheet.create({
   },
   toggleLabel: {
     ...Typography.body,
-    color: Colors.textPrimary,
+    color: Colors.textOnGlass,
   },
   toggleTrack: {
     width: 48,
@@ -357,17 +407,91 @@ const styles = StyleSheet.create({
   },
   aboutText: {
     ...Typography.body,
-    color: Colors.textSecondary,
+    color: Colors.textOnGlassSecondary,
     lineHeight: 22,
   },
   signOutBtn: {
-    marginTop: 8,
-    paddingVertical: 14,
+    marginTop: 14,
+    alignSelf: 'center',
+    borderRadius: 999,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.32)',
+    shadowColor: 'rgba(239,68,68,0.35)',
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  signOutBtnInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+  },
+  signOutTitle: {
+    ...Typography.bodyBold,
+    color: 'rgba(255,255,255,0.95)',
+    letterSpacing: 0.3,
+  },
+  modalRoot: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 22, 40, 0.78)',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  modalCenter: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+  },
+  signOutModalCard: {
+    paddingHorizontal: 26,
+    paddingVertical: 28,
+    borderRadius: 36,
     alignItems: 'center',
   },
-  signOutText: {
+  modalTitle: {
+    ...Typography.h2,
+    fontSize: 22,
+    fontWeight: '600',
+    color: Colors.textOnGlass,
+    textAlign: 'center',
+    marginBottom: 22,
+    letterSpacing: -0.3,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    alignSelf: 'center',
+  },
+  modalBtnSecondary: {
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnSecondaryText: {
     ...Typography.bodyBold,
-    color: '#f87171',
+    color: Colors.textOnGlass,
+  },
+  modalBtnDangerWrap: {
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  modalBtnDanger: {
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnDangerText: {
+    ...Typography.bodyBold,
+    color: Colors.white,
   },
 });
 
