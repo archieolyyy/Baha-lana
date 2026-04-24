@@ -14,7 +14,8 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { getFirebaseAuth, getFirestoreDb } from '../services/firebaseApp';
+import { httpsCallable } from 'firebase/functions';
+import { getFirebaseAuth, getFirestoreDb, getFirebaseFunctions } from '../services/firebaseApp';
 import { isFirebaseConfigured } from '../config/env';
 import { normalizePhilippinesPhone, isValidPhilippinesMobile } from '../utils/phone';
 
@@ -76,12 +77,16 @@ export const AuthProvider = ({ children }) => {
         displayName: displayName.trim(),
         phoneE164,
         location: 'Zamboanga City',
+        phoneVerified: false,
+        smsAlertsEnabled: false,
         updatedAt: serverTimestamp(),
       });
       setProfile({
         displayName: displayName.trim(),
         phoneE164,
         location: 'Zamboanga City',
+        phoneVerified: false,
+        smsAlertsEnabled: false,
       });
     },
     [],
@@ -110,13 +115,18 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Enter a valid PH mobile (e.g. 09XX XXX XXXX)');
       }
       const name = displayName.trim();
+      const nextLocation = location || 'Zamboanga City';
+      const didPhoneChange = phoneE164 !== profile?.phoneE164;
       await updateProfile(user, { displayName: name });
       await setDoc(
         doc(db, 'users', user.uid),
         {
           displayName: name,
           phoneE164,
-          location: location || 'Zamboanga City',
+          location: nextLocation,
+          phoneVerified: didPhoneChange ? false : !!profile?.phoneVerified,
+          smsAlertsEnabled:
+            didPhoneChange || !profile?.phoneVerified ? false : !!profile?.smsAlertsEnabled,
           updatedAt: serverTimestamp(),
         },
         { merge: true },
@@ -125,10 +135,85 @@ export const AuthProvider = ({ children }) => {
         ...p,
         displayName: name,
         phoneE164,
-        location: location || 'Zamboanga City',
+        location: nextLocation,
+        phoneVerified: didPhoneChange ? false : !!p?.phoneVerified,
+        smsAlertsEnabled:
+          didPhoneChange || !p?.phoneVerified ? false : !!p?.smsAlertsEnabled,
       }));
     },
-    [user],
+    [user, profile],
+  );
+
+  const sendPhoneVerificationOtp = useCallback(
+    async (phoneRaw) => {
+      const auth = getFirebaseAuth();
+      const fns = getFirebaseFunctions();
+      const phoneE164 = normalizePhilippinesPhone(phoneRaw);
+      if (!auth || !auth.currentUser || !fns) throw new Error('Not signed in');
+      if (!phoneE164 || !isValidPhilippinesMobile(phoneE164)) {
+        throw new Error('Enter a valid PH mobile (e.g. 09XX XXX XXXX)');
+      }
+      const call = httpsCallable(fns, 'sendPhoneVerificationOtp');
+      await call({ phoneE164 });
+      return phoneE164;
+    },
+    [],
+  );
+
+  const verifyPhoneOtp = useCallback(
+    async ({ phoneRaw, otpCode }) => {
+      const auth = getFirebaseAuth();
+      const db = getFirestoreDb();
+      const fns = getFirebaseFunctions();
+      const phoneE164 = normalizePhilippinesPhone(phoneRaw);
+      if (!auth || !auth.currentUser || !db || !fns) throw new Error('Not signed in');
+      if (!phoneE164 || !isValidPhilippinesMobile(phoneE164)) {
+        throw new Error('Enter a valid PH mobile (e.g. 09XX XXX XXXX)');
+      }
+      const call = httpsCallable(fns, 'verifyPhoneVerificationOtp');
+      await call({ phoneE164, otpCode: String(otpCode || '').trim() });
+      await setDoc(
+        doc(db, 'users', auth.currentUser.uid),
+        {
+          phoneE164,
+          phoneVerified: true,
+          phoneVerifiedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      setProfile((p) => ({
+        ...p,
+        phoneE164,
+        phoneVerified: true,
+      }));
+    },
+    [],
+  );
+
+  const setSmsAlertsEnabled = useCallback(
+    async (enabled) => {
+      const auth = getFirebaseAuth();
+      const db = getFirestoreDb();
+      if (!auth || !auth.currentUser || !db) throw new Error('Not signed in');
+      if (!profile?.phoneVerified && enabled) {
+        throw new Error('Verify your mobile number first.');
+      }
+      const next = !!enabled;
+      await setDoc(
+        doc(db, 'users', auth.currentUser.uid),
+        {
+          smsAlertsEnabled: next,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+      setProfile((p) => ({
+        ...p,
+        smsAlertsEnabled: next,
+      }));
+    },
+    [profile],
   );
 
   const displayName = useMemo(() => {
@@ -149,6 +234,9 @@ export const AuthProvider = ({ children }) => {
       signIn,
       signOut,
       updateUserProfile,
+      sendPhoneVerificationOtp,
+      verifyPhoneOtp,
+      setSmsAlertsEnabled,
       refreshProfile: () => (user ? loadProfile(user.uid) : Promise.resolve()),
     }),
     [
@@ -161,6 +249,9 @@ export const AuthProvider = ({ children }) => {
       signIn,
       signOut,
       updateUserProfile,
+      sendPhoneVerificationOtp,
+      verifyPhoneOtp,
+      setSmsAlertsEnabled,
       loadProfile,
     ],
   );

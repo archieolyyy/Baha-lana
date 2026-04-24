@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,9 @@ const ProfileScreen = () => {
     profile,
     firebaseReady,
     updateUserProfile,
+    sendPhoneVerificationOtp,
+    verifyPhoneOtp,
+    setSmsAlertsEnabled,
     signOut,
   } = useAuth();
   const [name, setName] = useState('');
@@ -32,13 +36,18 @@ const ProfileScreen = () => {
   const [location, setLocation] = useState('Zamboanga City');
   const [editing, setEditing] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
-  const [smsEnabled, setSmsEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [otpVisible, setOtpVisible] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpBusy, setOtpBusy] = useState(false);
+  const [otpSentTo, setOtpSentTo] = useState('');
   const [signOutVisible, setSignOutVisible] = useState(false);
 
   useEffect(() => {
     if (profile?.displayName) setName(profile.displayName);
     if (profile?.phoneE164) setPhone(formatPhoneDisplay(profile.phoneE164));
     if (profile?.location) setLocation(profile.location);
+    setSmsEnabled(!!profile?.smsAlertsEnabled);
   }, [profile]);
 
   const handleSave = async () => {
@@ -65,6 +74,49 @@ const ProfileScreen = () => {
       await signOut();
     } catch (e) {
       Alert.alert('Error', e.message || 'Could not sign out.');
+    }
+  };
+
+  const handleSendOtp = async () => {
+    setOtpBusy(true);
+    try {
+      const normalized = await sendPhoneVerificationOtp(phone);
+      setOtpSentTo(normalized);
+      setOtpVisible(true);
+      Alert.alert('OTP sent', `We sent a verification code to ${formatPhoneDisplay(normalized)}.`);
+    } catch (e) {
+      Alert.alert('Could not send OTP', e.message || 'Please try again.');
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim()) {
+      Alert.alert('Missing code', 'Enter the 6-digit OTP code.');
+      return;
+    }
+    setOtpBusy(true);
+    try {
+      await verifyPhoneOtp({ phoneRaw: phone, otpCode });
+      setOtpVisible(false);
+      setOtpCode('');
+      setOtpSentTo('');
+      Alert.alert('Verified', 'Your phone number is now verified for SMS alerts.');
+    } catch (e) {
+      Alert.alert('Verification failed', e.message || 'Please check your OTP and try again.');
+    } finally {
+      setOtpBusy(false);
+    }
+  };
+
+  const handleToggleSms = async () => {
+    const next = !smsEnabled;
+    try {
+      await setSmsAlertsEnabled(next);
+      setSmsEnabled(next);
+    } catch (e) {
+      Alert.alert('SMS setting', e.message || 'Could not update SMS alerts.');
     }
   };
 
@@ -111,6 +163,9 @@ const ProfileScreen = () => {
           </LinearGradient>
           <Text style={styles.avatarName}>{name || '—'}</Text>
           <Text style={styles.avatarPhone}>{phone || '—'}</Text>
+          <View style={[styles.verifyBadge, profile?.phoneVerified ? styles.verifyBadgeOn : styles.verifyBadgeOff]}>
+            <Text style={styles.verifyBadgeText}>{profile?.phoneVerified ? 'Phone verified' : 'Phone not verified'}</Text>
+          </View>
         </View>
 
         <GlassCard dark style={styles.infoCard}>
@@ -191,8 +246,27 @@ const ProfileScreen = () => {
             icon="chatbubble-outline"
             label="SMS Alerts"
             value={smsEnabled}
-            onToggle={() => setSmsEnabled(!smsEnabled)}
+            onToggle={handleToggleSms}
           />
+          {!profile?.phoneVerified ? (
+            <TouchableOpacity
+              style={styles.verifyBtn}
+              onPress={handleSendOtp}
+              activeOpacity={0.85}
+              disabled={otpBusy}
+            >
+              <LinearGradient colors={Gradients.bluePill} style={styles.verifyBtnInner}>
+                {otpBusy ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <>
+                    <Ionicons name="shield-checkmark-outline" size={17} color={Colors.white} />
+                    <Text style={styles.verifyBtnText}>Verify Mobile for SMS</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : null}
         </GlassCard>
 
         <GlassCard style={styles.aboutCard}>
@@ -223,6 +297,49 @@ const ProfileScreen = () => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <Modal
+        visible={otpVisible}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setOtpVisible(false)}
+      >
+        <View style={styles.modalRoot}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setOtpVisible(false)} />
+          <View style={styles.modalCenter} pointerEvents="box-none">
+            <GlassCard dark style={styles.signOutModalCard}>
+              <Text style={styles.modalTitle}>Verify Mobile</Text>
+              <Text style={styles.modalInfo}>
+                Enter the OTP sent to {formatPhoneDisplay(otpSentTo || phone)}.
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                value={otpCode}
+                onChangeText={setOtpCode}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="6-digit code"
+                placeholderTextColor={Colors.textMuted}
+              />
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={styles.modalBtnSecondary} onPress={handleSendOtp} activeOpacity={0.85}>
+                  <Text style={styles.modalBtnSecondaryText}>Resend OTP</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalBtnDangerWrap} onPress={handleVerifyOtp} activeOpacity={0.9}>
+                  <LinearGradient colors={['#2563eb', '#1d4ed8']} style={styles.modalBtnDanger}>
+                    {otpBusy ? (
+                      <ActivityIndicator color={Colors.white} />
+                    ) : (
+                      <Text style={styles.modalBtnDangerText}>Verify</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </GlassCard>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={signOutVisible}
@@ -314,6 +431,26 @@ const styles = StyleSheet.create({
     color: Colors.textOnGlassSecondary,
     marginTop: 2,
   },
+  verifyBadge: {
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  verifyBadgeOn: {
+    backgroundColor: 'rgba(16,185,129,0.14)',
+    borderColor: 'rgba(16,185,129,0.5)',
+  },
+  verifyBadgeOff: {
+    backgroundColor: 'rgba(234,179,8,0.14)',
+    borderColor: 'rgba(234,179,8,0.48)',
+  },
+  verifyBadgeText: {
+    ...Typography.caption,
+    color: Colors.textOnGlass,
+    fontWeight: '700',
+  },
   infoCard: {
     marginBottom: 16,
   },
@@ -402,6 +539,22 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     alignSelf: 'flex-end',
   },
+  verifyBtn: {
+    marginTop: 14,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  verifyBtnInner: {
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  verifyBtnText: {
+    ...Typography.bodyBold,
+    color: Colors.white,
+  },
   aboutCard: {
     marginBottom: 8,
   },
@@ -459,6 +612,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 22,
     letterSpacing: -0.3,
+  },
+  modalInfo: {
+    ...Typography.body,
+    color: Colors.textOnGlassSecondary,
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  modalInput: {
+    ...Typography.body,
+    color: Colors.textOnGlass,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 12,
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: 3,
   },
   modalActions: {
     flexDirection: 'row',
