@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Text, TouchableOpacity, ActivityIndicator, Alert, View } from 'react-native';
+import { Text, TouchableOpacity, ActivityIndicator, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AuthLayout from './AuthLayout';
 import FloatingLabelInput from '../../components/FloatingLabelInput';
+import StatusModal from '../../components/StatusModal';
 import { useAuth } from '../../context/AuthContext';
 import { authStyles } from './authTheme';
 import { Colors, Gradients } from '../../constants/colors';
@@ -12,17 +13,20 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [modal, setModal] = useState({ visible: false, title: '', message: '', type: 'info' });
+  const openModal = (title, message, type = 'info') =>
+    setModal({ visible: true, title, message, type });
 
   const onSubmit = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Missing fields', 'Enter email and password.');
+      openModal('Missing fields', 'Enter email and password.', 'warning');
       return;
     }
     setBusy(true);
     try {
       await signIn(email, password);
     } catch (e) {
-      Alert.alert('Sign in failed', e.message || 'Try again.');
+      openModal('Sign in failed', e.message || 'Try again.', 'error');
     } finally {
       setBusy(false);
     }
@@ -77,6 +81,13 @@ const LoginScreen = ({ navigation }) => {
           No account? <Text style={authStyles.linkBold}>Create one</Text>
         </Text>
       </TouchableOpacity>
+      <StatusModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onClose={() => setModal((m) => ({ ...m, visible: false }))}
+      />
     </AuthLayout>
   );
 };

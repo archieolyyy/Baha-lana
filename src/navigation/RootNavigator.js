@@ -11,6 +11,7 @@ import MainTabNavigator from './MainTabNavigator';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
+import VerifyPhoneScreen from '../screens/auth/VerifyPhoneScreen';
 
 const AuthStack = createNativeStackNavigator();
 
@@ -22,11 +23,17 @@ const AuthNavigator = () => (
   </AuthStack.Navigator>
 );
 
+const VerifyNavigator = () => (
+  <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStack.Screen name="VerifyPhone" component={VerifyPhoneScreen} />
+  </AuthStack.Navigator>
+);
+
 const RootNavigator = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, profile, profileLoading } = useAuth();
   const firebaseOn = isFirebaseConfigured();
 
-  if (firebaseOn && loading) {
+  if (firebaseOn && (loading || (user && profileLoading))) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={Colors.primaryLight} />
@@ -36,7 +43,13 @@ const RootNavigator = () => {
 
   return (
     <NavigationContainer>
-      {firebaseOn && !user ? <AuthNavigator /> : <MainTabNavigator />}
+      {firebaseOn && !user ? (
+        <AuthNavigator />
+      ) : firebaseOn && user && !profile?.phoneVerified ? (
+        <VerifyNavigator />
+      ) : (
+        <MainTabNavigator />
+      )}
     </NavigationContainer>
   );
 };

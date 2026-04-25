@@ -1,38 +1,55 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AuthLayout from './AuthLayout';
 import FloatingLabelInput from '../../components/FloatingLabelInput';
+import StatusModal from '../../components/StatusModal';
 import { useAuth } from '../../context/AuthContext';
 import { authStyles } from './authTheme';
 import { Colors, Gradients } from '../../constants/colors';
 
 const SignUpScreen = ({ navigation }) => {
-  const { signUp } = useAuth();
+  const { signUp, sendPhoneVerificationOtp } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [modal, setModal] = useState({ visible: false, title: '', message: '', type: 'info' });
+
+  const openModal = (title, message, type = 'info') =>
+    setModal({ visible: true, title, message, type });
 
   const onSubmit = async () => {
     const fn = firstName.trim();
     const ln = lastName.trim();
     if (!fn || !ln || !phone.trim() || !email.trim() || !password) {
-      Alert.alert('Missing fields', 'Fill in first name, last name, mobile, email, and password.');
+      openModal('Missing fields', 'Fill in first name, last name, mobile, email, and password.', 'warning');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Password', 'Use at least 6 characters.');
+      openModal('Password', 'Use at least 6 characters.', 'warning');
       return;
     }
     const displayName = `${fn} ${ln}`;
     setBusy(true);
     try {
       await signUp(email, password, displayName, phone);
+      try {
+        await sendPhoneVerificationOtp(phone);
+        openModal('OTP sent', 'We sent a verification code to your mobile number.', 'success');
+      } catch (otpErr) {
+        openModal(
+          'Account created',
+          otpErr?.message
+            ? `Your account was created, but OTP sending failed: ${otpErr.message}`
+            : 'Your account was created, but OTP sending failed. Please use Resend OTP.',
+          'warning',
+        );
+      }
     } catch (e) {
-      Alert.alert('Sign up failed', e.message || 'Try again.');
+      openModal('Sign up failed', e.message || 'Try again.', 'error');
     } finally {
       setBusy(false);
     }
@@ -110,6 +127,13 @@ const SignUpScreen = ({ navigation }) => {
           Already have an account? <Text style={authStyles.linkBoldSignUp}>Sign in</Text>
         </Text>
       </TouchableOpacity>
+      <StatusModal
+        visible={modal.visible}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onClose={() => setModal((m) => ({ ...m, visible: false }))}
+      />
     </AuthLayout>
   );
 };
