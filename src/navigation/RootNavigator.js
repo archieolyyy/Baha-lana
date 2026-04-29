@@ -4,7 +4,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuth } from '../context/AuthContext';
-import { isFirebaseConfigured } from '../config/env';
 import { Colors } from '../constants/colors';
 
 import MainTabNavigator from './MainTabNavigator';
@@ -31,9 +30,8 @@ const VerifyNavigator = () => (
 
 const RootNavigator = () => {
   const { user, loading, profile, profileLoading } = useAuth();
-  const firebaseOn = isFirebaseConfigured();
 
-  if (firebaseOn && (loading || (user && profileLoading))) {
+  if (loading || (user && profileLoading)) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={Colors.primaryLight} />
@@ -43,9 +41,9 @@ const RootNavigator = () => {
 
   return (
     <NavigationContainer>
-      {firebaseOn && !user ? (
+      {!user ? (
         <AuthNavigator />
-      ) : firebaseOn && user && !profile?.phoneVerified ? (
+      ) : user && !profile?.phoneVerified ? (
         <VerifyNavigator />
       ) : (
         <MainTabNavigator />

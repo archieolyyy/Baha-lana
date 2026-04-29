@@ -22,9 +22,10 @@ import { normalizePhilippinesPhone, isValidPhilippinesMobile } from '../utils/ph
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  const firebaseReady = isFirebaseConfigured();
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(() => isFirebaseConfigured());
+  const [loading, setLoading] = useState(() => firebaseReady);
   const [profileLoading, setProfileLoading] = useState(false);
 
   const loadProfile = useCallback(async (uid) => {
@@ -44,7 +45,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (!isFirebaseConfigured()) {
+    if (!firebaseReady) {
       setLoading(false);
       return;
     }
@@ -60,17 +61,20 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
     return unsub;
-  }, [loadProfile]);
+  }, [firebaseReady, loadProfile]);
 
   const signUp = useCallback(
     async (email, password, displayName, phoneRaw) => {
-      const auth = getFirebaseAuth();
-      const db = getFirestoreDb();
-      if (!auth || !db) throw new Error('Firebase not configured');
       const phoneE164 = normalizePhilippinesPhone(phoneRaw);
       if (!phoneE164 || !isValidPhilippinesMobile(phoneE164)) {
         throw new Error('Enter a valid PH mobile (e.g. 09XX XXX XXXX)');
       }
+      if (!firebaseReady) {
+        throw new Error('Firebase not configured. Add EXPO_PUBLIC_FIREBASE_* values in .env.');
+      }
+      const auth = getFirebaseAuth();
+      const db = getFirestoreDb();
+      if (!auth || !db) throw new Error('Firebase not configured');
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await updateProfile(cred.user, { displayName: displayName.trim() });
       await setDoc(doc(db, 'users', cred.user.uid), {
@@ -89,14 +93,17 @@ export const AuthProvider = ({ children }) => {
         smsAlertsEnabled: false,
       });
     },
-    [],
+    [firebaseReady],
   );
 
   const signIn = useCallback(async (email, password) => {
+    if (!firebaseReady) {
+      throw new Error('Firebase not configured. Add EXPO_PUBLIC_FIREBASE_* values in .env.');
+    }
     const auth = getFirebaseAuth();
     if (!auth) throw new Error('Firebase not configured');
     await signInWithEmailAndPassword(auth, email.trim(), password);
-  }, []);
+  }, [firebaseReady]);
 
   const signOut = useCallback(async () => {
     const auth = getFirebaseAuth();
@@ -107,6 +114,9 @@ export const AuthProvider = ({ children }) => {
 
   const updateUserProfile = useCallback(
     async ({ displayName, phoneRaw, location }) => {
+      if (!firebaseReady) {
+        throw new Error('Firebase not configured. Add EXPO_PUBLIC_FIREBASE_* values in .env.');
+      }
       const auth = getFirebaseAuth();
       const db = getFirestoreDb();
       if (!user || !auth || !db) throw new Error('Not signed in');
@@ -141,37 +151,49 @@ export const AuthProvider = ({ children }) => {
           didPhoneChange || !p?.phoneVerified ? false : !!p?.smsAlertsEnabled,
       }));
     },
-    [user, profile],
+    [firebaseReady, user, profile],
   );
 
   const sendPhoneVerificationOtp = useCallback(
     async (phoneRaw) => {
+      if (!firebaseReady) {
+        throw new Error('Firebase not configured. Add EXPO_PUBLIC_FIREBASE_* values in .env.');
+      }
       const auth = getFirebaseAuth();
       const fns = getFirebaseFunctions();
       const phoneE164 = normalizePhilippinesPhone(phoneRaw);
-      if (!auth || !auth.currentUser || !fns) throw new Error('Not signed in');
+      if (!auth || !auth.currentUser) throw new Error('Not signed in');
       if (!phoneE164 || !isValidPhilippinesMobile(phoneE164)) {
         throw new Error('Enter a valid PH mobile (e.g. 09XX XXX XXXX)');
       }
+      if (!fns) throw new Error('Firebase Functions not available.');
       const call = httpsCallable(fns, 'sendPhoneVerificationOtp');
       await call({ phoneE164 });
       return phoneE164;
     },
-    [],
+    [firebaseReady],
   );
 
   const verifyPhoneOtp = useCallback(
     async ({ phoneRaw, otpCode }) => {
+      if (!firebaseReady) {
+        throw new Error('Firebase not configured. Add EXPO_PUBLIC_FIREBASE_* values in .env.');
+      }
       const auth = getFirebaseAuth();
       const db = getFirestoreDb();
       const fns = getFirebaseFunctions();
       const phoneE164 = normalizePhilippinesPhone(phoneRaw);
-      if (!auth || !auth.currentUser || !db || !fns) throw new Error('Not signed in');
+      if (!auth || !auth.currentUser || !db) throw new Error('Not signed in');
       if (!phoneE164 || !isValidPhilippinesMobile(phoneE164)) {
         throw new Error('Enter a valid PH mobile (e.g. 09XX XXX XXXX)');
       }
+      const cleanOtp = String(otpCode || '').trim();
+      if (!/^\d{6}$/.test(cleanOtp)) {
+        throw new Error('Enter a valid 6-digit OTP code.');
+      }
+      if (!fns) throw new Error('Firebase Functions not available.');
       const call = httpsCallable(fns, 'verifyPhoneVerificationOtp');
-      await call({ phoneE164, otpCode: String(otpCode || '').trim() });
+      await call({ phoneE164, otpCode: cleanOtp });
       await setDoc(
         doc(db, 'users', auth.currentUser.uid),
         {
@@ -188,11 +210,14 @@ export const AuthProvider = ({ children }) => {
         phoneVerified: true,
       }));
     },
-    [],
+    [firebaseReady],
   );
 
   const setSmsAlertsEnabled = useCallback(
     async (enabled) => {
+      if (!firebaseReady) {
+        throw new Error('Firebase not configured. Add EXPO_PUBLIC_FIREBASE_* values in .env.');
+      }
       const auth = getFirebaseAuth();
       const db = getFirestoreDb();
       if (!auth || !auth.currentUser || !db) throw new Error('Not signed in');
@@ -213,7 +238,7 @@ export const AuthProvider = ({ children }) => {
         smsAlertsEnabled: next,
       }));
     },
-    [profile],
+    [firebaseReady, profile],
   );
 
   const displayName = useMemo(() => {
@@ -228,7 +253,7 @@ export const AuthProvider = ({ children }) => {
       profile,
       loading,
       profileLoading,
-      firebaseReady: isFirebaseConfigured(),
+      firebaseReady,
       displayName,
       signUp,
       signIn,
@@ -252,6 +277,7 @@ export const AuthProvider = ({ children }) => {
       sendPhoneVerificationOtp,
       verifyPhoneOtp,
       setSmsAlertsEnabled,
+      firebaseReady,
       loadProfile,
     ],
   );

@@ -10,7 +10,7 @@ import { Colors, Gradients } from '../../constants/colors';
 import { formatPhoneDisplay } from '../../utils/phone';
 
 const VerifyPhoneScreen = () => {
-  const { profile, verifyPhoneOtp, sendPhoneVerificationOtp, signOut } = useAuth();
+  const { profile, firebaseReady, verifyPhoneOtp, sendPhoneVerificationOtp, signOut } = useAuth();
   const [otpCode, setOtpCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
@@ -21,12 +21,12 @@ const VerifyPhoneScreen = () => {
     setModal({ visible: true, title, message, type });
 
   useEffect(() => {
-    if (!phoneE164 || sentOnce) return;
+    if (!firebaseReady || !phoneE164 || sentOnce) return;
     setSentOnce(true);
     sendPhoneVerificationOtp(phoneE164).catch(() => {
       openModal('Could not send OTP', 'Please tap Resend OTP to try again.', 'error');
     });
-  }, [phoneE164, sentOnce, sendPhoneVerificationOtp, openModal]);
+  }, [firebaseReady, phoneE164, sentOnce, sendPhoneVerificationOtp, openModal]);
 
   const onVerify = async () => {
     if (!phoneE164) {

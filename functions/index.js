@@ -1,24 +1,30 @@
 const crypto = require('node:crypto');
 const admin = require('firebase-admin');
-const twilio = require('twilio');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onValueWritten } = require('firebase-functions/v2/database');
 const { defineSecret } = require('firebase-functions/params');
+const logger = require('firebase-functions/logger');
 
 admin.initializeApp();
 
 const db = admin.firestore();
-
 const OTP_SECRET = defineSecret('OTP_SECRET');
-const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID');
-const TWILIO_AUTH_TOKEN = defineSecret('TWILIO_AUTH_TOKEN');
-const TWILIO_FROM_NUMBER = defineSecret('TWILIO_FROM_NUMBER');
+const MOCEAN_API_TOKEN = defineSecret('MOCEAN_API_TOKEN');
+const MOCEAN_FROM = defineSecret('MOCEAN_FROM');
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
 const SMS_COOLDOWN_MS = 30 * 60 * 1000;
 const WARNING_CM = 4.5;
 const DANGER_CM = 9.0;
+
+const toMoceanRecipient = (phoneE164) => {
+  const raw = String(phoneE164 || '').trim();
+  if (/^\+639\d{9}$/.test(raw)) return raw.replace(/^\+/, '');
+  if (/^09\d{9}$/.test(raw)) return raw.replace(/^0/, '63');
+  if (/^639\d{9}$/.test(raw)) return raw;
+  return raw;
+};
 
 const hashOtp = (phoneE164, otpCode, secret) =>
   crypto.createHash('sha256').update(`${phoneE164}:${otpCode}:${secret}`).digest('hex');
@@ -46,19 +52,54 @@ const buildAlertMessage = ({ level, cm }) => {
   )} cm) as of ${now}. Stay alert and prepare to evacuate if needed.`;
 };
 
-const sendTwilioSms = async ({ accountSid, authToken, from, to, message }) => {
-  const client = twilio(accountSid, authToken);
-  return client.messages.create({
-    body: message,
-    from,
-    to,
+const sendMoceanSms = async ({ apiToken, from, to, message }) => {
+  const recipient = toMoceanRecipient(to);
+  const endpoint = 'https://rest.moceanapi.com/rest/2/sms';
+  const body = new URLSearchParams({
+    'mocean-from': String(from || '').trim(),
+    'mocean-to': recipient,
+    'mocean-text': message,
+    'mocean-resp-format': 'json',
   });
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${String(apiToken || '').trim()}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body: body.toString(),
+  });
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (_) {
+    data = null;
+  }
+  if (!response.ok) {
+    throw new Error(`Mocean HTTP ${response.status}: ${JSON.stringify(data)}`);
+  }
+  const status = Number(data?.messages?.[0]?.status);
+  if (!Number.isFinite(status) || status !== 0) {
+    const details = data?.messages?.[0]?.err_msg || data?.messages?.[0]?.status || 'unknown';
+    throw new Error(`Mocean rejected request: ${details}`);
+  }
+
+  logger.info('Mocean send success', {
+    endpoint,
+    recipient,
+    from: String(from || '').trim(),
+    response: data,
+  });
+  return { messageId: String(data?.messages?.[0]?.msgid || '') };
 };
 
 exports.sendPhoneVerificationOtp = onCall(
   {
     region: 'asia-southeast1',
-    secrets: [OTP_SECRET, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER],
+    secrets: [OTP_SECRET, MOCEAN_API_TOKEN, MOCEAN_FROM],
   },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Sign in first.');
@@ -82,13 +123,21 @@ exports.sendPhoneVerificationOtp = onCall(
       { merge: true },
     );
 
-    await sendTwilioSms({
-      accountSid: TWILIO_ACCOUNT_SID.value(),
-      authToken: TWILIO_AUTH_TOKEN.value(),
-      from: TWILIO_FROM_NUMBER.value(),
-      to: phoneE164,
-      message: `Your BAHA-LANA verification code is ${otpCode}. It expires in 5 minutes.`,
-    });
+    try {
+      await sendMoceanSms({
+        apiToken: MOCEAN_API_TOKEN.value(),
+        from: MOCEAN_FROM.value(),
+        to: phoneE164,
+        message: `Your BAHA-LANA verification code is ${otpCode}. It expires in 5 minutes.`,
+      });
+    } catch (err) {
+      logger.error('OTP SMS send failed', {
+        uid: request.auth.uid,
+        phoneE164,
+        error: err?.message || String(err),
+      });
+      throw new HttpsError('internal', err?.message || 'Failed to send OTP.');
+    }
 
     return { ok: true };
   },
@@ -150,7 +199,7 @@ exports.sendFloodSmsAlerts = onValueWritten(
   {
     ref: '/sensor/cm',
     region: 'asia-southeast1',
-    secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER],
+    secrets: [MOCEAN_API_TOKEN, MOCEAN_FROM],
   },
   async (event) => {
     const nextCm = Number(event.data.after.val());
@@ -189,20 +238,16 @@ exports.sendFloodSmsAlerts = onValueWritten(
     }
 
     const message = buildAlertMessage({ level, cm: nextCm });
-    const accountSid = TWILIO_ACCOUNT_SID.value();
-    const authToken = TWILIO_AUTH_TOKEN.value();
-    const from = TWILIO_FROM_NUMBER.value();
-    const sendTasks = [];
     const logs = [];
+    const sendTasks = [];
 
     usersSnap.forEach((docSnap) => {
       const user = docSnap.data();
       if (!/^\+639\d{9}$/.test(user.phoneE164 || '')) return;
       sendTasks.push(
-        sendTwilioSms({
-          accountSid,
-          authToken,
-          from,
+        sendMoceanSms({
+          apiToken: MOCEAN_API_TOKEN.value(),
+          from: MOCEAN_FROM.value(),
           to: user.phoneE164,
           message,
         })
@@ -211,7 +256,7 @@ exports.sendFloodSmsAlerts = onValueWritten(
               uid: docSnap.id,
               phoneE164: user.phoneE164,
               status: 'sent',
-              providerId: res.sid,
+              providerId: String(res?.messageId || ''),
             });
           })
           .catch((err) => {

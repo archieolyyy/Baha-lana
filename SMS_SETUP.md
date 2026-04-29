@@ -1,4 +1,4 @@
-# SMS + OTP Setup (Twilio)
+# SMS + OTP Setup (Mocean)
 
 ## 1) Install Firebase CLI and login
 
@@ -27,16 +27,14 @@ npm install
 From the project root:
 
 ```bash
-firebase functions:secrets:set TWILIO_ACCOUNT_SID
-firebase functions:secrets:set TWILIO_AUTH_TOKEN
-firebase functions:secrets:set TWILIO_FROM_NUMBER
+firebase functions:secrets:set MOCEAN_API_TOKEN
+firebase functions:secrets:set MOCEAN_FROM
 firebase functions:secrets:set OTP_SECRET
 ```
 
 Use:
-- `TWILIO_ACCOUNT_SID`: Twilio Account SID
-- `TWILIO_AUTH_TOKEN`: Twilio Auth Token
-- `TWILIO_FROM_NUMBER`: Twilio sender number (E.164 format, e.g. `+1...`)
+- `MOCEAN_API_TOKEN`: your Mocean API token
+- `MOCEAN_FROM`: sender name/number allowed in your Mocean account
 - `OTP_SECRET`: random long secret string used to hash OTP codes
 
 ## 5) Ensure app env values are set
@@ -65,3 +63,4 @@ If Firebase asks for an index, create it in the Firebase Console and redeploy.
 - OTP max attempts: 5.
 - SMS cooldown for flood alerts: 30 minutes unless level increases.
 - Warning threshold: `>= 4.5 cm`, Danger threshold: `>= 9.0 cm`.
+- Mocean endpoint used by functions: `POST https://rest.moceanapi.com/rest/2/sms`
